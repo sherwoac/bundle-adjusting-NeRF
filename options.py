@@ -109,21 +109,21 @@ def save_options_file(opt):
     if os.path.isfile(opt_fname):
         with open(opt_fname) as file:
             opt_old = yaml.safe_load(file)
-        if opt!=opt_old:
-            # prompt if options are not identical
-            opt_new_fname = "{}/options_temp.yaml".format(opt.output_path)
-            with open(opt_new_fname,"w") as file:
-                yaml.safe_dump(util.to_dict(opt),file,default_flow_style=False,indent=4)
-            print("existing options file found (different from current one)...")
-            os.system("diff {} {}".format(opt_fname,opt_new_fname))
-            os.system("rm {}".format(opt_new_fname))
-            override = None
-            while override not in ["y","n"]:
-                override = input("override? (y/n) ")
-            if override=="n":
-                print("safe exiting...")
-                exit()
-        else: print("existing options file found (identical)")
+        # if opt!=opt_old:
+        #     # prompt if options are not identical
+        #     opt_new_fname = "{}/options_temp.yaml".format(opt.output_path)
+        #     with open(opt_new_fname,"w") as file:
+        #         yaml.safe_dump(util.to_dict(opt),file,default_flow_style=False,indent=4)
+        #     print("existing options file found (different from current one)...")
+        #     os.system("diff {} {}".format(opt_fname,opt_new_fname))
+        #     os.system("rm {}".format(opt_new_fname))
+        #     override = None
+        #     while override not in ["y","n"]:
+        #         override = input("override? (y/n) ")
+        #     if override=="n":
+        #         print("safe exiting...")
+        #         exit()
+        # else: print("existing options file found (identical)")
     else: print("(creating new options file...)")
     with open(opt_fname,"w") as file:
         yaml.safe_dump(util.to_dict(opt),file,default_flow_style=False,indent=4)

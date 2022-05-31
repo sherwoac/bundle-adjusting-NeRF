@@ -10,7 +10,7 @@ import camera
 def get_normalized_pixel_grid(opt):
     y_range = ((torch.arange(opt.H,dtype=torch.float32,device=opt.device)+0.5)/opt.H*2-1)*(opt.H/max(opt.H,opt.W))
     x_range = ((torch.arange(opt.W,dtype=torch.float32,device=opt.device)+0.5)/opt.W*2-1)*(opt.W/max(opt.H,opt.W))
-    Y,X = torch.meshgrid(y_range,x_range) # [H,W]
+    Y,X = torch.meshgrid(y_range,x_range, indexing='ij') # [H,W]
     xy_grid = torch.stack([X,Y],dim=-1).view(-1,2) # [HW,2]
     xy_grid = xy_grid.repeat(opt.batch_size,1,1) # [B,HW,2]
     return xy_grid
@@ -20,7 +20,7 @@ def get_normalized_pixel_grid_crop(opt):
     x_crop = (opt.W//2-opt.W_crop//2,opt.W//2+opt.W_crop//2)
     y_range = ((torch.arange(*(y_crop),dtype=torch.float32,device=opt.device)+0.5)/opt.H*2-1)*(opt.H/max(opt.H,opt.W))
     x_range = ((torch.arange(*(x_crop),dtype=torch.float32,device=opt.device)+0.5)/opt.W*2-1)*(opt.W/max(opt.H,opt.W))
-    Y,X = torch.meshgrid(y_range,x_range) # [H,W]
+    Y,X = torch.meshgrid(y_range,x_range, indexing='ij') # [H,W]
     xy_grid = torch.stack([X,Y],dim=-1).view(-1,2) # [HW,2]
     xy_grid = xy_grid.repeat(opt.batch_size,1,1) # [B,HW,2]
     return xy_grid

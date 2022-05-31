@@ -14,6 +14,9 @@ import util,util_vis
 from util import log,debug
 from . import base
 import warp
+import tinycudann as tcnn
+
+# torch.cuda.amp.autocast(enabled=True)
 
 # ============================ main engine for training and evaluation ============================
 
@@ -69,7 +72,7 @@ class Model(base.Model):
         self.warp_pert,var.image_pert = self.generate_warp_perturbation(opt)
         # train
         var = util.move_to_device(var,opt.device)
-        loader = tqdm.trange(opt.max_iter,desc="training",leave=False)
+        loader = tqdm.trange(opt.max_iter,desc="training")
         # visualize initial state
         var = self.graph.forward(opt,var)
         self.visualize(opt,var,step=0)
@@ -93,15 +96,17 @@ class Model(base.Model):
         return loss
 
     def generate_warp_perturbation(self,opt):
-        # pre-generate perturbations (translational noise + homography noise)
-        warp_pert_all = torch.zeros(opt.batch_size,opt.warp.dof,device=opt.device)
-        trans_pert = [(0,0)]+[(x,y) for x in (-opt.warp.noise_t,opt.warp.noise_t)
-                                    for y in (-opt.warp.noise_t,opt.warp.noise_t)]
         def create_random_perturbation():
             warp_pert = torch.randn(opt.warp.dof,device=opt.device)*opt.warp.noise_h
             warp_pert[0] += trans_pert[i][0]
             warp_pert[1] += trans_pert[i][1]
             return warp_pert
+
+        # pre-generate perturbations (translational noise + homography noise)
+        warp_pert_all = torch.zeros(opt.batch_size,opt.warp.dof,device=opt.device)
+        trans_pert = [(0,0)]+[(x,y) for x in (-opt.warp.noise_t,opt.warp.noise_t)
+                                    for y in (-opt.warp.noise_t,opt.warp.noise_t)]
+
         for i in range(opt.batch_size):
             warp_pert = create_random_perturbation()
             while not warp.check_corners_in_range(opt,warp_pert[None]):
@@ -174,7 +179,9 @@ class Graph(base.Graph):
 
     def __init__(self,opt):
         super().__init__(opt)
-        self.neural_image = NeuralImageFunction(opt)
+        # self.neural_image = NeuralImageFunction(opt)
+        # self.neural_image = NeuralImageFunctionTiny(opt)
+        self.neural_image = NeuralImageFunctionTinyEncoding(opt)
 
     def forward(self,opt,var,mode=None):
         xy_grid = warp.get_normalized_pixel_grid_crop(opt)
@@ -197,6 +204,8 @@ class NeuralImageFunction(torch.nn.Module):
         super().__init__()
         self.define_network(opt)
         self.progress = torch.nn.Parameter(torch.tensor(0.)) # use Parameter so it could be checkpointed
+        self.k = torch.arange(opt.arch.posenc.L_2D, dtype=torch.float32,device=opt.device)
+        self.freq = 2**self.k*np.pi
 
     def define_network(self,opt):
         input_2D_dim = 2+4*opt.arch.posenc.L_2D if opt.arch.posenc else 2
@@ -218,6 +227,7 @@ class NeuralImageFunction(torch.nn.Module):
         if opt.arch.posenc:
             points_enc = self.positional_encoding(opt,coord_2D,L=opt.arch.posenc.L_2D)
             points_enc = torch.cat([coord_2D,points_enc],dim=-1) # [B,...,6L+3]
+            print(points_enc[0, 0])
         else: points_enc = coord_2D
         feat = points_enc
         # extract implicit features
@@ -229,21 +239,83 @@ class NeuralImageFunction(torch.nn.Module):
         rgb = feat.sigmoid_() # [B,...,3]
         return rgb
 
+    def get_positional_encoding_weightings(self, opt, L):
+        start, end = opt.barf_c2f
+        alpha = (self.progress.data-start)/(end-start)*L
+        return (1-(alpha-self.k).clamp_(min=0, max=1).mul_(np.pi).cos_())/2
+
+
     def positional_encoding(self,opt,input,L): # [B,...,N]
-        shape = input.shape
-        freq = 2**torch.arange(L,dtype=torch.float32,device=opt.device)*np.pi # [L]
-        spectrum = input[...,None]*freq # [B,...,N,L]
+ # [L]
+        spectrum = input[...,None]*self.freq # [B,...,N,L]
         sin,cos = spectrum.sin(),spectrum.cos() # [B,...,N,L]
         input_enc = torch.stack([sin,cos],dim=-2) # [B,...,N,2,L]
-        input_enc = input_enc.view(*shape[:-1],-1) # [B,...,2NL]
+        input_enc = input_enc.view(*input.shape[:-1],-1) # [B,...,2NL]
         # coarse-to-fine: smoothly mask positional encoding for BARF
         if opt.barf_c2f is not None:
             # set weights for different frequency bands
-            start,end = opt.barf_c2f
-            alpha = (self.progress.data-start)/(end-start)*L
-            k = torch.arange(L,dtype=torch.float32,device=opt.device)
-            weight = (1-(alpha-k).clamp_(min=0,max=1).mul_(np.pi).cos_())/2
+            weight = self.get_positional_encoding_weightings(opt, L)
             # apply weights
             shape = input_enc.shape
+            print(input_enc.view(-1,4*L)[0])
             input_enc = (input_enc.view(-1,L)*weight).view(*shape)
         return input_enc
+
+
+class NeuralImageFunctionTiny(NeuralImageFunction):
+    network_config =\
+        {
+            "otype": "FullyFusedMLP",
+            "activation": "ReLU",
+            "output_activation": "Sigmoid",
+            "n_neurons": 128,
+            "n_hidden_layers": 5
+         }
+
+    def __init__(self,opt):
+        super().__init__(opt)
+
+    def define_network(self,opt):
+        n_input_dims = 2+4*opt.arch.posenc.L_2D if opt.arch.posenc else 2
+        # point-wise RGB prediction
+        self.mlp = tcnn.Network(n_input_dims, 3, NeuralImageFunctionTiny.network_config)
+
+    def forward(self,opt,coord_2D): # [B,...,3]
+        if opt.arch.posenc:
+            points_enc = self.positional_encoding(opt,coord_2D,L=opt.arch.posenc.L_2D)
+            points_enc = torch.cat([coord_2D,points_enc],dim=-1) # [B,...,6L+3]
+        else:
+            points_enc = coord_2D
+
+        feat = points_enc.reshape((-1, points_enc.shape[-1]))
+        return self.mlp(feat).type(torch.float).reshape((points_enc.shape[0], -1, 3))
+
+
+class NeuralImageFunctionTinyEncoding(NeuralImageFunction):
+    encoding_config = \
+        {
+            "otype": "Frequency",
+            "n_dims_to_encode": 2,
+            "n_frequencies": 8
+        }
+
+    def __init__(self,opt):
+        super().__init__(opt)
+
+    def define_network(self, opt):
+        n_input_dims = 2+4*opt.arch.posenc.L_2D if opt.arch.posenc else 2
+        # point-wise RGB prediction
+        self.mlp = tcnn.Network(n_input_dims, 3, NeuralImageFunctionTiny.network_config)
+        self.encoding = tcnn.Encoding(2, NeuralImageFunctionTinyEncoding.encoding_config, dtype=torch.float)
+
+    def forward(self, opt, coord_2D): # [B,...,3]
+        reshaped_coords = coord_2D.reshape(-1, 2)
+        feat = self.encoding(reshaped_coords)
+        if opt.barf_c2f is not None:
+            # nb tinycudann encoding is frequency first, then sin/cos
+            weights = self.get_positional_encoding_weightings(opt, opt.arch.posenc.L_2D).repeat_interleave(4)
+            feat = feat * weights
+        feat_with_coords = torch.cat([reshaped_coords, feat], dim=-1)
+
+        return self.mlp(feat_with_coords).type(torch.float).reshape((coord_2D.shape[0], -1, 3))
+

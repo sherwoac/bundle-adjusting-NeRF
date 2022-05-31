@@ -27,7 +27,7 @@ def tb_image(opt,tb,step,group,name,images,num_vis=None,from_range=(0,1),cmap="g
 def preprocess_vis_image(opt,images,from_range=(0,1),cmap="gray"):
     min,max = from_range
     images = (images-min)/(max-min)
-    images = images.clamp(min=0,max=1).cpu()
+    images = images.clamp(min=0.,max=1.).cpu()
     if images.shape[1]==1:
         images = get_heatmap(opt,images[:,0].cpu(),cmap=cmap)
     return images
