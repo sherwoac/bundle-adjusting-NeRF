@@ -230,7 +230,7 @@ def get_center_and_ray(opt,pose,intr=None): # [HW,2]
         # compute image coordinate grid
         y_range = torch.arange(opt.H,dtype=torch.float32,device=opt.device).add_(0.5)
         x_range = torch.arange(opt.W,dtype=torch.float32,device=opt.device).add_(0.5)
-        Y,X = torch.meshgrid(y_range,x_range) # [H,W]
+        Y,X = torch.meshgrid(y_range,x_range, indexing='ij') # [H,W]
         xy_grid = torch.stack([X,Y],dim=-1).view(-1,2) # [HW,2]
     # compute center and ray
     batch_size = len(pose)

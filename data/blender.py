@@ -60,6 +60,7 @@ class Dataset(base.Dataset):
 
     def get_image(self,opt,idx):
         image_fname = "{}/{}.png".format(self.path,self.list[idx]["file_path"])
+        assert os.path.isfile(image_fname), f'file not found at: {image_fname}'
         image = PIL.Image.fromarray(imageio.imread(image_fname)) # directly using PIL.Image.open() leads to weird corruption....
         return image
 
