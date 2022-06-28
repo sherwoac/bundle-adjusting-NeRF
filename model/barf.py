@@ -210,8 +210,9 @@ class Graph(nerf.Graph):
     def __init__(self,opt):
         super().__init__(opt)
         self.nerf = NeRF(opt)
+        self.nerf = nerf.NeRFTiny(opt)
         if opt.nerf.fine_sampling:
-            self.nerf_fine = NeRF(opt)
+            self.nerf = nerf.NeRFTiny(opt)
         self.pose_eye = torch.eye(3,4).to(opt.device)
 
     def get_pose(self,opt,var,mode=None):

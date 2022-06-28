@@ -299,7 +299,7 @@ class NeuralImageFunctionTinyEncoding(NeuralImageFunction):
             "n_frequencies": 8
         }
 
-    def __init__(self,opt):
+    def __init__(self, opt):
         super().__init__(opt)
 
     def define_network(self, opt):
