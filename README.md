@@ -1,4 +1,27 @@
+## Fork details
+### aim
+To integrate [tiny-cuda-nn](https://github.com/NVlabs/tiny-cuda-nn/) and this BARF fork to:
+- demonstrate the speed up on the `planar` demo:
+    - faster
+    - same results
+- and the NeRF demo:
+    - faster (~20%)
+    - same results
+### changes
+In order to get this working:
+- the NN architecture has become more rigid, the configurability of the original implementation is no longer supported
+- `requirements.yaml` is updated to:
+    - include tiny-cuda-nn github pip install
+    - bring the pytorch/nvidia libraries up to recent versions
+### commentary
+Observations:
+- lack of significant speed up likely down to:
+    - proportion of time spent in original pytorch MLP likely not significant, therefore tiny-cuda-nn not significant improvement
+    - tiny-cuda-nn is used in 3 parts (4 layers of rgb -> 4 layers of skip -> 2 layers of view dependence) therefore memory passing overhead significant
+- improvements could be made if using a singular monolithic (tiny-cuda-nn-)MLP (WIP)
+
 ## BARF :vomiting_face:: Bundle-Adjusting Neural Radiance Fields
+
 [Chen-Hsuan Lin](https://chenhsuanlin.bitbucket.io/),
 [Wei-Chiu Ma](http://people.csail.mit.edu/weichium/),
 [Antonio Torralba](https://groups.csail.mit.edu/vision/torralbalab/),
