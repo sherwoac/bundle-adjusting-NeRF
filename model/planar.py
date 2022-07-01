@@ -227,7 +227,6 @@ class NeuralImageFunction(torch.nn.Module):
         if opt.arch.posenc:
             points_enc = self.positional_encoding(opt,coord_2D,L=opt.arch.posenc.L_2D)
             points_enc = torch.cat([coord_2D,points_enc],dim=-1) # [B,...,6L+3]
-            print(points_enc[0, 0])
         else: points_enc = coord_2D
         feat = points_enc
         # extract implicit features
@@ -257,7 +256,6 @@ class NeuralImageFunction(torch.nn.Module):
             weight = self.get_positional_encoding_weightings(opt, L)
             # apply weights
             shape = input_enc.shape
-            print(input_enc.view(-1,4*L)[0])
             input_enc = (input_enc.view(-1,L)*weight).view(*shape)
         return input_enc
 
