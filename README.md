@@ -1,12 +1,45 @@
 ## Fork details
 ### aim
+
 To integrate [tiny-cuda-nn](https://github.com/NVlabs/tiny-cuda-nn/) and this BARF fork to:
-- demonstrate the speed up on the `planar` demo:
-    - faster
-    - same results
-- and the NeRF demo:
-    - faster (~20%)
-    - same results
+<details>
+<summary>show the planar demo ~300% faster, same results</summary>
+
+### for command line: 
+  
+  ```bash
+  python train.py --model=planar --yaml=planar --name=cat --seed=3 --barf_c2f=[0,0.4] --freq.vis=5000 --freq.scalar=5000
+  ```
+  
+  ### untouched fork:
+  `training: 100%|█████████████████████████████████████████████████████████████| 5000/5000 [01:34<00:00, 52.67it/s, it=5000, loss=0.000]`
+  ### tiny version:
+  `training: 100%|████████████████████████████████████████████████████████████| 5000/5000 [00:29<00:00, 171.61it/s, it=5000, loss=0.001]`
+  ### results:
+| Original      | Tiny |
+| ----------- | ----------- |
+| ![gif](results/planar.gif)      | ![gif](results/planar_tiny.gif)       |
+</details>
+
+<details>
+<summary>show the nerf lego demo ~20% faster, same results</summary>
+
+### for command line: 
+  
+  ```bash
+  python train.py --model=barf --yaml=barf_blender --name=lego --barf_c2f=[0.1,0.5] --visdom=false --max_iter=1001
+  ```
+  
+  ### untouched fork:
+  ``
+  ### tiny version:
+  ``
+  ### results:
+| Original      | Tiny |
+| ----------- | ----------- |
+| ![gif](results/nerf.gif)      | ![gif](results/nerf_tiny.gif)       |
+</details>
+
 ### changes
 In order to get this working:
 - the NN architecture has become more rigid, the configurability of the original implementation is no longer supported
