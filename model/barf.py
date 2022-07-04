@@ -209,10 +209,11 @@ class Graph(nerf.Graph):
 
     def __init__(self,opt):
         super().__init__(opt)
-        self.nerf = NeRF(opt)
-        self.nerf = nerf.NeRFTiny(opt)
+        nerf_class = util.get_class(opt.nerf_module, opt.nerf_class)
+        self.nerf = nerf_class(opt)
         if opt.nerf.fine_sampling:
-            self.nerf = nerf.NeRFTiny(opt)
+            self.nerf_fine = nerf_class(opt)
+
         self.pose_eye = torch.eye(3,4).to(opt.device)
 
     def get_pose(self,opt,var,mode=None):
@@ -243,22 +244,22 @@ class Graph(nerf.Graph):
         else: pose = var.pose
         return pose
 
-class NeRF(nerf.NeRF):
 
-    def __init__(self,opt):
+class BARFNeRF(nerf.NeRF):
+    def __init__(self, opt):
         super().__init__(opt)
-        self.progress = torch.nn.Parameter(torch.tensor(0.)) # use Parameter so it could be checkpointed
+        self.progress = torch.nn.Parameter(torch.tensor(0.))  # use Parameter so it could be checkpointed
 
-    def positional_encoding(self,opt,input,L): # [B,...,N]
-        input_enc = super().positional_encoding(opt,input,L=L) # [B,...,2NL]
+    def positional_encoding(self, opt, input, L):  # [B,...,N]
+        input_enc = super().positional_encoding(opt, input, L=L)  # [B,...,2NL]
         # coarse-to-fine: smoothly mask positional encoding for BARF
         if opt.barf_c2f is not None:
             # set weights for different frequency bands
-            start,end = opt.barf_c2f
+            start, end = opt.barf_c2f
             alpha = (self.progress.data-start)/(end-start)*L
-            k = torch.arange(L,dtype=torch.float32,device=opt.device)
-            weight = (1-(alpha-k).clamp_(min=0,max=1).mul_(np.pi).cos_())/2
+            k = torch.arange(L, dtype=torch.float32, device=opt.device)
+            weight = (1-(alpha-k).clamp_(min=0, max=1).mul_(np.pi).cos_())/2
             # apply weights
             shape = input_enc.shape
-            input_enc = (input_enc.view(-1,L)*weight).view(*shape)
+            input_enc = (input_enc.view(-1, L) * weight).view(*shape)
         return input_enc

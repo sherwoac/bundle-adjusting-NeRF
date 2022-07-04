@@ -10,6 +10,7 @@ import termcolor
 import socket
 import contextlib
 from easydict import EasyDict as edict
+import importlib
 
 # convert to colored strings
 def red(message,**kwargs): return termcolor.colored(str(message),color="red",attrs=[k for k,v in kwargs.items() if v is True])
@@ -188,3 +189,13 @@ def colorcode_to_number(code):
     ords = [n-48 if n<58 else n-87 for n in ords]
     rgb = (ords[0]*16+ords[1],ords[2]*16+ords[3],ords[4]*16+ords[5])
     return rgb
+
+
+def get_class(module_name, class_name):
+    """
+    @param module_name:
+    @param class_name:
+    @return: class pointer
+    """
+    module = importlib.import_module(f'model.{module_name}')
+    return getattr(module, class_name)

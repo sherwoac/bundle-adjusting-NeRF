@@ -17,3 +17,6 @@ optim:                                                      # optimization optio
 
 visdom:                                                     # Visdom options
     cam_depth: 0.5                                          # size of visualized cameras
+
+nerf_module: nerf_tiny
+nerf_class: NeRFTiny

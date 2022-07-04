@@ -56,3 +56,6 @@ freq:                                                       # periodic actions d
     vis: 1000                                               # visualize results (every N iterations)
     val: 20                                                 # validate on val set (every N epochs)
     ckpt: 50                                                # save checkpoint (every N epochs)
+
+nerf_module: nerf
+nerf_class: NeRF
